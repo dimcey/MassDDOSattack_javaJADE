@@ -38,22 +38,29 @@ The following sequence diagram illustrates the sequence of actions and message p
 The server is another Amazon Ec2 instance  which accepts TCP socket connection requests from clients and handles them in multi-threaded manner. In our implementation, to emulate very intensive computation, the server computes fibonacci sequences once the client opens connection.
 The TCP server which is attacked by agents from those sub-coordinators have a load-balancer and an Auto Scaling Group associated with it to cope up with the intensity of the attack. In the auto-scaling group we specified a policy to scale up and down based on the cpu utilization percentage of the server. All of the instances in the Auto Scaling Group are configured to accept the TCP connection automatically on startup. Therefore all TCP traffic will be redirected to the new instances in the group without manually opening the socket on each of them.
 we can observe the increase in the number of instances that are added because of the attack which requires the scale up policy to be executed. And once we stop the attack a gradual decrease in the number of instances (scale down) is observed.
+
 ![alt tag](https://github.com/dimcey/MassDDOSattack_javaJADE/blob/master/LoadBalancer_data.png)
+
 As more and more agents are creating sockets on the server and executing the Fibonacci computation on the server, the load increases - the instances get gradually created and the requests get served which have queued up in the buffer. This explains the gradual load decrease when the attack stops, there are still requests to be serviced and the load remains high till the computation is completed, after which there are instances removed according to the scale down policy applied to the auto-scaling group.
 
 # The War of worlds - System adaptation under attack 
 The decision was to enable the Architect to have to full control for the planning of the attack. This means that the Architect will decide how many soldiers he needs for certain attack. He has 10 SubCoordinators running on their own Amazon instance and the Architect can decide how much of them to use, and the main advantage of this is that a possible attack to the server can be performed from 10 different IP addresses, with various number of soldier agents in each of the SubCoordinators. Every SubCoordinator is waiting for a message from the Architect that will include the number of soldier agents to be created, and the creation for each soldier will happen in a separate thread. With all this, we are rapidly reducing the time needed to create and make 10000 soldier agents ready to attack in less than 2 minutes. But when the Architect calls for an attack, each of the soldier agents will also perform the TCP server connection in a multithreaded fashion. Moreover, with the modification of the ticker behavior the Architect will have full control on how often each of the solder agents will do the attack. This means that all of the soldier agents will open TCP connection to the server almost in the same time which will just add more burden to the server performances.
 
 This will emulate a real attack, performing it on different machines (instances) with different ports, thus having a scenario similar to a distributed denial of service (DDOS) attack flooding the server. Thankfully in this case though, the server is equipped with an auto scaling group and a load balancer which somewhat efficiently handle the onslaught of a flood of connections upto a certain number of agents!
+
 ![alt tag](https://github.com/dimcey/MassDDOSattack_javaJADE/blob/master/NumberOfInstances.png)
+
 With 10 agents created and fibonacci number sequence execution at 40, the load balancer fired up the first instance and the load went beyond 90% CPU utilization(seen from the top command). This in turn fired up another instance according to the scaling rule. But soon the load came down and one instance was able to keep up with the performance. 
 
 With 50 agents, the same scenario was executed and the instances created were 3 and they came down, and with 100 agents attacking the server the auto scaling group created 4 instances and the load went up and gradually decreased as shown in figure above. 
 
 The CPU utilization varied, there is no absolute number we can give for this variation as it depends on the no of instances fired by the server to handle the load. 
+
 ![alt tag](https://github.com/dimcey/MassDDOSattack_javaJADE/blob/master/autoScaling.png)![alt tag](https://github.com/dimcey/MassDDOSattack_javaJADE/blob/master/vncImage.png)
 
 As it is shown in figures above, the cpu utilization in the server quickly went up to greater than 95% as the attack is launched and the autoscaling group creates desired instances according to the load and at 4 number of instances the cpu utilization was at 79.9%. Stopping the attack does not immediately lower the cpu utilization as the requests are scheduled and processed one by one until the last TCP request is handled by the server. After some time of stopping the attack, a gradual decrease in the cpu utilization is observed and the auto scaling group gradually decreases the number of instances that are desired to do the task.
+
 ![alt tag](https://github.com/dimcey/MassDDOSattack_javaJADE/blob/master/JADEimage.png)
+
 On the image above is illustrate the attacker side where it is specified the number of attacking agents under each sub-coordinators. After the attack is lunched, the auto scaling group launches one instance in each 5 minutes interval. When the attack is stopped, a gradual drop in the number of instances is observed.
 
